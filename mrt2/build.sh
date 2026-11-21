@@ -36,10 +36,19 @@ mkdir -p "$PKG/LICENSES"
 cp "$(find "$WORK/build" -name mrt2 -type f -perm -u+x | head -1)" "$PKG/mrt2"
 cp "$(find "$WORK/build" -name mlx.metallib | head -1)" "$PKG/mlx.metallib"
 cp LICENSE "$PKG/LICENSES/magenta-realtime.txt"
-for d in "$WORK"/build/_deps/*-src; do
-  f=$(find "$d" -maxdepth 1 \( -iname 'LICENSE*' -o -iname 'COPYING*' \) | head -1)
-  [ -n "$f" ] && cp "$f" "$PKG/LICENSES/$(basename "$d" -src).txt"
+# The licences of what is linked into mrt2 (its link line), not of every
+# library Magenta's build fetches for its other examples (Max, Pd,
+# SuperCollider). Eigen: every licence it ships (its COPYING.* files)
+B="$WORK/build"
+for d in _deps/mlx-src _deps/metal_cpp-src _deps/tensorflow-lite-src _deps/sentencepiece-src _deps/fmt-src _deps/json-src \
+         abseil-cpp cpuinfo farmhash flatbuffers gemmlowp ruy ml_dtypes; do
+  f=$(find "$B/$d" -maxdepth 1 \( -iname 'LICENSE*' -o -iname 'COPYING*' \) | sort | head -1)
+  [ -n "$f" ] || { echo "no licence found in $d" >&2; exit 1; }
+  cp "$f" "$PKG/LICENSES/$(basename "$d" -src).txt"
 done
+for f in "$B"/eigen/COPYING.*; do cp "$f" "$PKG/LICENSES/eigen-$(basename "$f" | sed 's/^COPYING\.//').txt"; done
+# fft2d states its terms in its readme
+cp "$B/fft2d/readme.txt" "$PKG/LICENSES/fft2d.txt"
 cp "$HERE/core.patch" "$HERE/main.cpp" "$PKG/LICENSES/"
 cat > "$PKG/README.txt" <<EOF
 mrt2 $VERSION: Magenta RealTime 2 (github.com/magenta/magenta-realtime at $MAGENTA,
