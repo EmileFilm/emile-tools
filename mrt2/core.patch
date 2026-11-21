@@ -1,0 +1,63 @@
+diff --git a/core/include/magentart/mlx_engine.h b/core/include/magentart/mlx_engine.h
+index d43eedc..21c27ca 100644
+--- a/core/include/magentart/mlx_engine.h
++++ b/core/include/magentart/mlx_engine.h
+@@ -335,6 +335,10 @@ public:
+   /// Atomic — safe from any thread. @{
+ 
+   void set_drumless(bool on);
++  /// Drum token for the next frames: -1 free, 0 no drum, 1 a hit.
++  void set_drum_token(int t);
++  /// Pitches held off (true) in every frame; nullptr clears.
++  void set_pitches_off(const bool *off128);
+   bool get_drumless() const;
+   /// @}
+ 
+diff --git a/core/src/mlx_engine.cpp b/core/src/mlx_engine.cpp
+index 7e2e0dd..0daf4fb 100644
+--- a/core/src/mlx_engine.cpp
++++ b/core/src/mlx_engine.cpp
+@@ -192,6 +192,9 @@ struct MLXEngine::Impl {
+   std::unique_ptr<MidiNoteTracker> note_tracker_ =
+       std::make_unique<MidiNoteTracker>();
+   std::atomic<bool> drumless_{false};
++  std::atomic<int> drum_token_{-1};
++  std::atomic<bool> pitches_off_on_{false};
++  bool pitches_off_[128] = {};
+   std::atomic<int> onset_mode_{0}; // 0=MaskOnsets, 1=UnmaskOnsets
+ 
+   // --- Model configuration ---
+@@ -1483,9 +1486,17 @@ void MLXEngine::Impl::populate_condition_tokens(int32_t *cond_ptr) {
+     }
+   }
+ 
++  if (pitches_off_on_.load(std::memory_order_relaxed)) {
++    for (int i = 0; i < 128; ++i) {
++      if (pitches_off_[i] && cond_ptr[kMusicCoCaRVQLevels + i] == kNumReservedTokens - 1)
++        cond_ptr[kMusicCoCaRVQLevels + i] = kNumReservedTokens + 0;
++    }
++  }
+   // Drum conditioning slot: sits right after the 128 piano pitches.
++  const int drum_token = drum_token_.load(std::memory_order_relaxed);
+   cond_ptr[kMusicCoCaRVQLevels + num_pitches] =
+-      drumless ? kNumReservedTokens + 0 : kNumReservedTokens - 1;
++      drumless ? kNumReservedTokens + 0
++               : (drum_token >= 0 ? kNumReservedTokens + drum_token : kNumReservedTokens - 1);
+ 
+ 
+ }
+@@ -2628,6 +2639,14 @@ int MLXEngine::get_seed_rotation() const {
+ void MLXEngine::set_note_on(int n) { impl_->note_tracker_->noteOn(n); }
+ void MLXEngine::set_note_off(int n) { impl_->note_tracker_->noteOff(n); }
+ 
++void MLXEngine::set_drum_token(int t) {
++  impl_->drum_token_.store(t, std::memory_order_relaxed);
++}
++void MLXEngine::set_pitches_off(const bool *off128) {
++  if (!off128) { impl_->pitches_off_on_.store(false); return; }
++  for (int i = 0; i < 128; ++i) impl_->pitches_off_[i] = off128[i];
++  impl_->pitches_off_on_.store(true);
++}
+ // Drumless
+ void MLXEngine::set_drumless(bool on) {
+   impl_->drumless_.store(on, std::memory_order_relaxed);
