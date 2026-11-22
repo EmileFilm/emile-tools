@@ -15,7 +15,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 VERSION=$(cat "$HERE/VERSION")
 ARCH=${1:-arm64}
 case $ARCH in arm64) CPU=arm64; FF=aarch64; VPX=arm64-darwin20-gcc;; x64) CPU=x86_64; FF=x86_64; VPX=x86_64-darwin20-gcc;; *) echo "arm64 or x64"; exit 1;; esac
-WORK=${WORK:-${TMPDIR:-/tmp}/emile-tools/ffmpeg-$ARCH}
+# A fixed place, not the builder's own folders: its path is written into the programs
+WORK=/tmp/emile-tools/ffmpeg-$ARCH
 DIST=${DIST:-$HERE/../dist}
 MIN=13.0
 JOBS=$(sysctl -n hw.ncpu)
@@ -106,5 +107,7 @@ libvpx $LIBVPX, opus $OPUS, freetype $FREETYPE, harfbuzz $HARFBUZZ. Built by
 github.com/EmileFilm/emile-tools ffmpeg/build.sh, which rebuilds it with other versions of them.
 Configured with: ${CFG[*]}
 R
+# Nothing of the builder's machine in what is released
+if strings -a "$PKG/ffmpeg" "$PKG/ffprobe" | grep -qE '/Users/|/private/|/var/folders/' || grep -qE '/Users/|/private/|/var/folders/' "$PKG/README.txt"; then echo "a path of this machine is in the build"; exit 1; fi
 (cd "$WORK" && ditto -c -k --keepParent "$NAME" "$DIST/$NAME.zip")
 shasum -a 256 "$DIST/$NAME.zip"; stat -f %z "$DIST/$NAME.zip"
