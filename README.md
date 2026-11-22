@@ -6,8 +6,18 @@ again. Émile's engine lists each release file with its SHA-256
 
 | Folder | Program | What it is | Upstream | Licence |
 |---|---|---|---|---|
+| `ffmpeg/` | `ffmpeg`, `ffprobe` | Reads, filters and encodes every video and sound Émile makes; built without any GPL part, H.264, HEVC and AAC by the system's encoders | [FFmpeg](https://ffmpeg.org) 9.0.2, unchanged (with dav1d, libvpx, opus, freetype, harfbuzz) | LGPL-2.1-or-later |
 | `mrt2/` | `mrt2` | Generates music from a text prompt, offline, on Apple Silicon | [magenta/magenta-realtime](https://github.com/magenta/magenta-realtime) (pinned commit in `build.sh`) | Apache-2.0 |
 | `sfizz/` | `sfizz_render` | Plays a MIDI file through an SFZ instrument into a 32-bit float WAV | [sfztools/sfizz](https://github.com/sfztools/sfizz) (pinned commit in `build.sh`) | BSD-2-Clause |
+
+## ffmpeg
+
+FFmpeg's release, unchanged, with no `--enable-gpl` and no `--enable-nonfree`:
+no x264 or x265. Linked in statically: dav1d (reads AV1), libvpx (writes VP9),
+opus, freetype and harfbuzz (words on a contact sheet). Every other library is
+macOS's own. `ffmpeg/VERSION` is FFmpeg's version and our build of it; the
+build checks that `CONFIG_GPL` is 0 and that nothing but the system's libraries
+is linked dynamically.
 
 ## mrt2
 
@@ -31,12 +41,14 @@ bundled `atomic_queue` fails.
 
 ## Building
 
+    pip install meson ninja pkgconf cmake             # ffmpeg (cmake any version)
     pip install "cmake<3.28"                          # Magenta's build needs it
     xcodebuild -downloadComponent MetalToolchain      # MLX's kernels
+    ffmpeg/build.sh arm64 && ffmpeg/build.sh x64      # x64 is cross-built
     mrt2/build.sh
     sfizz/build.sh
 
-Each writes `dist/<name>-<version>-macos-arm64.zip` (the program, every
+Each writes `dist/<name>-<version>-macos-<arm64|x64>.zip` (the program, every
 licence under `LICENSES/`) and prints its SHA-256. A release is tagged
 `<name>-<version>` with that file attached.
 
